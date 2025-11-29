@@ -1,0 +1,28 @@
+# 美股定时筛选系统 - 依赖包
+
+# 数据采集
+yfinance>=0.2.32          # Yahoo Finance数据接口
+pandas>=2.0.0             # 数据处理
+numpy>=1.24.0             # 数值计算
+
+# 技术指标计算
+# pandas-ta>=0.3.14b      # 技术分析指标库（可选，已在indicators.py中手动实现，无需安装）
+
+# 定时任务
+schedule>=1.2.0           # 定时任务调度
+pytz>=2023.3              # 时区处理
+
+# 报告生成
+openpyxl>=3.1.0           # Excel文件读写
+
+# 配置管理
+PyYAML>=6.0               # YAML配置文件解析
+
+# 网络请求（yfinance依赖）
+requests>=2.31.0
+lxml>=4.9.0               # HTML解析（获取股票列表）
+html5lib>=1.1             # HTML解析备选
+
+# 其他工具
+python-dateutil>=2.8.0    # 日期处理
+

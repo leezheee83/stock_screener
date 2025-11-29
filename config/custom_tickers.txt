@@ -1,0 +1,27 @@
+# 自定义股票列表
+# 编辑此文件，添加您关注的股票代码
+
+# 科技股
+AAPL
+MSFT
+GOOGL
+AMZN
+TSLA
+NVDA
+META
+
+# 金融股
+JPM
+BAC
+WFC
+
+# 消费股
+WMT
+COST
+NKE
+
+# 医疗股
+JNJ
+UNH
+PFE
+

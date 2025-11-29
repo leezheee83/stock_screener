@@ -1,0 +1,87 @@
+# 美股定时筛选系统配置文件
+
+# 数据源配置
+data:
+  # 股票池类型: sp500, nasdaq100, custom
+  stock_universe: nasdaq100
+  
+  # 历史数据长度（天数）
+  history_days: 180
+  
+  # 支持的时间周期
+  timeframes:
+    - daily
+    - weekly
+    - monthly
+  
+  # 数据存储路径
+  storage:
+    daily: data/daily
+    weekly: data/weekly
+    monthly: data/monthly
+
+# 调度配置
+scheduler:
+  # 是否启用定时任务
+  enabled: true
+  
+  # 调度时间（美东时间 ET）
+  schedules:
+    - time: "16:30"  # 美股收盘后
+      timezone: "US/Eastern"
+    - time: "09:00"  # 美股开盘前
+      timezone: "US/Eastern"
+
+# 策略配置
+strategies:
+  # 均线突破策略
+  ma_crossover:
+    enabled: true
+    short_period: 20
+    long_period: 50
+    
+  # 成交量异常策略
+  volume_surge:
+    enabled: true
+    lookback_period: 20
+    surge_multiplier: 2.0
+    
+  # 价格形态识别
+  pattern_recognition:
+    enabled: true
+    patterns:
+      - breakout
+      - support_resistance
+
+# 技术指标参数
+indicators:
+  ma_periods: [5, 10, 20, 50, 200]
+  ema_periods: [12, 26]
+  rsi_period: 14
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  bollinger_bands:
+    period: 20
+    std_dev: 2
+
+# 报告配置
+report:
+  # 输出格式: csv, excel, both
+  format: both
+  
+  # 报告保存路径
+  output_dir: reports
+  
+  # 是否包含详细指标数据
+  include_details: true
+
+# 日志配置
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/stock_screener.log
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
