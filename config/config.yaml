@@ -58,6 +58,7 @@ indicators:
   ma_periods: [5, 10, 20, 50, 200]
   ema_periods: [12, 26]
   rsi_period: 14
+  adx_period: 14
   macd:
     fast: 12
     slow: 26
@@ -65,6 +66,7 @@ indicators:
   bollinger_bands:
     period: 20
     std_dev: 2
+  volume_ma_period: 20
 
 # 报告配置
 report:
@@ -84,4 +86,49 @@ logging:
   file: logs/stock_screener.log
   max_bytes: 10485760  # 10MB
   backup_count: 5
+
+# Level 1 硬筛选配置
+screening:
+  # 硬过滤器配置
+  filters:
+    # 流动性过滤
+    liquidity:
+      min_avg_dollar_volume: 1000000   # 最小日均成交额（100万美元）
+      min_price: 5.0                   # 最小股价
+      volume_period: 20                # 计算周期
+      excellent_threshold: 10000000    # 优秀流动性阈值（1000万美元）
+    
+    # 数据质量过滤
+    data_quality:
+      min_data_points: 100             # 最少数据点
+      required_columns:
+        - close
+        - volume
+        - high
+        - low
+    
+    # 趋势硬门槛过滤
+    trend:
+      min_20d_return: 0.0              # 20日最小涨幅（0%）
+      require_above_ma50: true         # 必须在MA50上方
+      require_ma20_uptrend: true       # MA20必须上升
+  
+  # 趋势评分器配置
+  trend_scorer:
+    type: "ma_adx"                     # 使用MA+ADX评分器
+    version: "1.0.0"
+    weights:
+      ma_alignment: 0.40               # 均线排列权重
+      adx_strength: 0.35               # ADX强度权重
+      price_momentum: 0.15             # 价格动量权重
+      price_position: 0.10             # 价格位置权重
+  
+  # 综合评分配置
+  final_scoring:
+    weights:
+      liquidity: 0.20                  # 流动性权重
+      trend: 0.30                      # 趋势权重
+      signal: 0.40                     # 策略信号权重
+      multi_strategy: 0.10             # 多策略共振权重
+    output_count: 20                   # 输出Top N
 

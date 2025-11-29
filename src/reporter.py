@@ -1,6 +1,6 @@
 """
 Reporter - 报告生成模块
-生成筛选报告（CSV/Excel格式）
+生成筛选报告（CSV/Excel/JSON格式）
 """
 
 import os
@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import List, Dict
 import pandas as pd
 from pathlib import Path
+import json
 
 
 class Reporter:
@@ -290,4 +291,48 @@ class Reporter:
         
         if deleted_count > 0:
             self.logger.info(f"已清理 {deleted_count} 个旧报告")
+    
+    def generate_json_report(self, results: List[Dict], 
+                            output_path: str = None) -> str:
+        """
+        生成JSON格式报告
+        
+        Args:
+            results: 筛选结果（来自scoring_engine的标准格式）
+            output_path: 输出路径（可选）
+        
+        Returns:
+            str: JSON文件路径
+        """
+        if not results:
+            self.logger.warning("没有结果，不生成JSON报告")
+            return None
+        
+        # 生成文件名
+        if output_path is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = self.output_dir / f"screening_results_{timestamp}.json"
+        
+        # 添加报告元数据
+        report_data = {
+            'metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'total_stocks': len(results),
+                'report_version': '1.0.0',
+                'level': 'Level 1 Hard Screening'
+            },
+            'results': results
+        }
+        
+        # 保存JSON
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(report_data, f, indent=2, ensure_ascii=False)
+            
+            self.logger.info(f"JSON报告已保存: {output_path}")
+            return str(output_path)
+        
+        except Exception as e:
+            self.logger.error(f"保存JSON报告失败: {e}")
+            return None
 

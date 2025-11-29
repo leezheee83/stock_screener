@@ -27,6 +27,9 @@ from src.strategy import (
 )
 from src.reporter import Reporter
 from src.scheduler import TaskScheduler, ScheduleConfig
+from src.filters import LiquidityFilter, DataQualityFilter, TrendFilter
+from src.trend_scoring import MAADXScorer
+from src.scoring_engine import ScoringEngine
 
 
 class StockScreener:
@@ -54,7 +57,7 @@ class StockScreener:
         self.data_fetcher = DataFetcher(
             history_days=self.config_manager.get_history_days(),
             max_workers=1,      # 串行下载（最安全，避免限流）
-            request_delay=2.0,  # 每次请求间隔2秒
+            request_delay=5.0,  # 每次请求间隔5秒（增加延迟）
             max_retries=3       # 失败重试3次
         )
         self.data_storage = DataStorage()
@@ -65,6 +68,9 @@ class StockScreener:
         
         # 初始化策略
         self.strategies = self._initialize_strategies()
+        
+        # 初始化筛选组件
+        self._initialize_screening_components()
         
         self.logger.info(f"已启用 {len(self.strategies)} 个策略")
     
@@ -139,6 +145,34 @@ class StockScreener:
         
         return strategies
     
+    def _initialize_screening_components(self):
+        """初始化筛选组件（Level 1硬筛选）"""
+        
+        screening_config = self.config_manager.get('screening', {})
+        
+        # 初始化过滤器
+        filters_config = screening_config.get('filters', {})
+        self.liquidity_filter = LiquidityFilter(
+            filters_config.get('liquidity', {})
+        )
+        self.data_quality_filter = DataQualityFilter(
+            filters_config.get('data_quality', {})
+        )
+        self.trend_filter = TrendFilter(
+            filters_config.get('trend', {})
+        )
+        
+        # 初始化趋势评分器
+        trend_config = screening_config.get('trend_scorer', {})
+        self.trend_scorer = MAADXScorer(trend_config)
+        
+        # 初始化综合评分引擎
+        self.scoring_engine = ScoringEngine(
+            screening_config.get('final_scoring', {})
+        )
+        
+        self.logger.info("Level 1 硬筛选组件已初始化")
+    
     def initialize_data(self):
         """初始化：首次下载所有历史数据"""
         self.logger.info("开始初始化数据...")
@@ -179,66 +213,161 @@ class StockScreener:
         
         self.logger.info("数据更新完成！")
     
-    def run_screening(self) -> Dict[str, List[Dict]]:
-        """执行股票筛选"""
+    def run_screening(self) -> Dict:
+        """执行股票筛选（Level 1 硬筛选）"""
         self.logger.info("=" * 60)
-        self.logger.info("开始执行股票筛选")
+        self.logger.info("开始执行股票筛选 (Level 1 硬筛选)")
         self.logger.info("=" * 60)
         
-        # 加载数据（使用日K数据）
+        # 1. 加载数据
         available_stocks = self.data_storage.list_available_stocks('daily')
         self.logger.info(f"加载 {len(available_stocks)} 只股票的数据")
-        
         stock_data = self.data_storage.load_multiple_stocks(available_stocks, 'daily')
         
-        # 为每只股票计算技术指标
+        # 2. 计算技术指标
         self.logger.info("计算技术指标...")
         indicators_config = self.config_manager.get_indicators_config()
-        
         for ticker in stock_data.keys():
             stock_data[ticker] = self.indicators.add_all_indicators(
-                stock_data[ticker], 
-                indicators_config
+                stock_data[ticker], indicators_config
             )
         
-        # 执行每个策略
-        all_results = {}
+        # 3. 硬过滤
+        self.logger.info("执行硬过滤...")
         
+        # 3.1 数据质量过滤
+        stock_data, data_quality_rejected = self.data_quality_filter.filter(stock_data)
+        self.logger.info(f"数据质量过滤: 通过 {len(stock_data)}, 拒绝 {len(data_quality_rejected)}")
+        
+        # 3.2 流动性过滤
+        stock_data, liquidity_rejected = self.liquidity_filter.filter(stock_data)
+        self.logger.info(f"流动性过滤: 通过 {len(stock_data)}, 拒绝 {len(liquidity_rejected)}")
+        
+        # 3.3 趋势硬门槛过滤
+        stock_data, trend_rejected = self.trend_filter.filter(stock_data)
+        self.logger.info(f"趋势过滤: 通过 {len(stock_data)}, 拒绝 {len(trend_rejected)}")
+        
+        if len(stock_data) == 0:
+            self.logger.warning("所有股票都被过滤，没有符合条件的股票")
+            return {
+                'final_results': [],
+                'filter_stats': {
+                    'data_quality_rejected': len(data_quality_rejected),
+                    'liquidity_rejected': len(liquidity_rejected),
+                    'trend_rejected': len(trend_rejected)
+                },
+                'strategy_results': {}
+            }
+        
+        # 4. 趋势评分
+        self.logger.info("计算趋势得分...")
+        trend_scores = {}
+        for ticker, df in stock_data.items():
+            trend_scores[ticker] = self.trend_scorer.score(df)
+        
+        # 5. 流动性评分
+        self.logger.info("计算流动性得分...")
+        liquidity_scores = {}
+        liq_config = self.config_manager.get('screening', {}).get('filters', {}).get('liquidity', {})
+        for ticker, df in stock_data.items():
+            liquidity_scores[ticker] = self.scoring_engine.calculate_liquidity_score(df, liq_config)
+        
+        # 6. 执行策略（获取信号）
+        self.logger.info("执行策略筛选...")
+        strategy_results = {}
         for strategy in self.strategies:
             self.logger.info(f"执行策略: {strategy.name}")
             results = strategy.scan(stock_data)
-            all_results[strategy.name] = results
+            strategy_results[strategy.name] = results
             self.logger.info(f"策略 {strategy.name} 找到 {len(results)} 只股票")
         
-        return all_results
+        # 7. 综合评分并排序
+        self.logger.info("计算综合得分...")
+        final_results = self.scoring_engine.score_all(
+            liquidity_scores,
+            trend_scores,
+            strategy_results
+        )
+        
+        self.logger.info(f"最终输出 Top {len(final_results)} 只股票")
+        
+        # 返回完整结果
+        return {
+            'final_results': final_results,
+            'filter_stats': {
+                'total_input': len(available_stocks),
+                'after_data_quality': len(stock_data) + len(liquidity_rejected) + len(trend_rejected),
+                'after_liquidity': len(stock_data) + len(trend_rejected),
+                'after_trend': len(stock_data),
+                'data_quality_rejected': len(data_quality_rejected),
+                'liquidity_rejected': len(liquidity_rejected),
+                'trend_rejected': len(trend_rejected)
+            },
+            'strategy_results': strategy_results
+        }
     
-    def run_once(self):
+    def run_once(self, skip_update=False):
         """执行一次完整的筛选流程"""
         self.logger.info("执行一次性筛选任务")
         
         # 更新数据
-        self.update_data()
+        if not skip_update:
+            self.update_data()
+        else:
+            self.logger.info("跳过数据更新，使用本地数据")
         
         # 执行筛选
-        all_results = self.run_screening()
+        screening_results = self.run_screening()
+        final_results = screening_results['final_results']
+        filter_stats = screening_results['filter_stats']
         
         # 生成报告
         report_config = self.config_manager.get_report_config()
-        report_path = self.reporter.generate_summary_report(
-            all_results,
-            format=report_config.get('format', 'both')
-        )
         
-        if report_path:
-            self.logger.info(f"报告已生成: {report_path}")
+        # 生成JSON报告（主要格式）
+        json_path = self.reporter.generate_json_report(final_results)
+        if json_path:
+            self.logger.info(f"JSON报告已生成: {json_path}")
+        
+        # 同时生成传统格式报告（兼容）
+        if report_config.get('format') in ['excel', 'both']:
+            # 将新格式转换为旧格式以兼容现有reporter
+            legacy_results = self._convert_to_legacy_format(final_results)
+            report_path = self.reporter.generate_summary_report(
+                legacy_results,
+                format=report_config.get('format', 'both')
+            )
+            if report_path:
+                self.logger.info(f"Excel报告已生成: {report_path}")
         
         # 打印摘要
-        self._print_summary(all_results)
+        self._print_summary_v2(final_results, filter_stats)
         
-        return all_results
+        return screening_results
+    
+    def _convert_to_legacy_format(self, final_results: List[Dict]) -> Dict[str, List[Dict]]:
+        """将新格式结果转换为旧格式（兼容现有reporter）"""
+        legacy = {}
+        for result in final_results:
+            for signal in result['strategy_signals']:
+                strategy_name = signal['strategy']
+                if strategy_name not in legacy:
+                    legacy[strategy_name] = []
+                
+                legacy[strategy_name].append({
+                    'ticker': result['ticker'],
+                    'signal': signal['signal'],
+                    'price': result['basic_info']['price'],
+                    'details': {
+                        **signal['details'],
+                        'final_score': result['final_score']['total'],
+                        'rank': result['final_score'].get('rank', 0)
+                    }
+                })
+        return legacy
     
     def _print_summary(self, all_results: Dict[str, List[Dict]]):
-        """打印筛选结果摘要"""
+        """打印筛选结果摘要（旧版）"""
         self.logger.info("=" * 60)
         self.logger.info("筛选结果摘要")
         self.logger.info("=" * 60)
@@ -255,6 +384,39 @@ class StockScreener:
         
         self.logger.info("=" * 60)
         self.logger.info(f"总计: {total_signals} 个信号")
+        self.logger.info("=" * 60)
+    
+    def _print_summary_v2(self, final_results: List[Dict], filter_stats: Dict):
+        """打印筛选结果摘要（新版）"""
+        self.logger.info("=" * 60)
+        self.logger.info("Level 1 硬筛选结果摘要")
+        self.logger.info("=" * 60)
+        
+        # 打印过滤统计
+        self.logger.info(f"总输入: {filter_stats['total_input']} 只股票")
+        self.logger.info(f"数据质量过滤后: {filter_stats['after_data_quality']} 只")
+        self.logger.info(f"流动性过滤后: {filter_stats['after_liquidity']} 只")
+        self.logger.info(f"趋势过滤后: {filter_stats['after_trend']} 只")
+        self.logger.info("-" * 60)
+        
+        # 打印Top结果
+        self.logger.info(f"Top {len(final_results)} 候选股票:")
+        for result in final_results[:10]:  # 只打印前10个
+            rank = result['final_score'].get('rank', 0)
+            ticker = result['ticker']
+            price = result['basic_info']['price']
+            score = result['final_score']['total']
+            confidence = result['final_score'].get('confidence', 'unknown')
+            num_signals = len(result['strategy_signals'])
+            
+            self.logger.info(
+                f"  #{rank:2d} {ticker:6s} ${price:7.2f} | "
+                f"得分:{score:5.1f} | 置信度:{confidence:6s} | {num_signals}个信号"
+            )
+        
+        if len(final_results) > 10:
+            self.logger.info(f"  ... 还有 {len(final_results) - 10} 只股票")
+        
         self.logger.info("=" * 60)
     
     def start_scheduler(self):
@@ -311,6 +473,8 @@ def main():
                        help='仅更新数据，不执行筛选')
     parser.add_argument('--config', type=str, default='config/config.yaml',
                        help='配置文件路径')
+    parser.add_argument('--skip-update', action='store_true',
+                       help='跳过数据更新，使用本地数据')
     
     args = parser.parse_args()
     
@@ -323,7 +487,7 @@ def main():
     elif args.update:
         screener.update_data()
     elif args.run_once:
-        screener.run_once()
+        screener.run_once(skip_update=args.skip_update)
     elif args.daemon:
         screener.start_scheduler()
     else:

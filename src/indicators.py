@@ -160,6 +160,54 @@ class TechnicalIndicators:
         return atr
     
     @staticmethod
+    def calculate_adx(df: pd.DataFrame, period: int = 14) -> tuple:
+        """
+        计算ADX指标 (Average Directional Index)
+        
+        Args:
+            df: 数据DataFrame，必须包含high, low, close列
+            period: 周期（默认14）
+        
+        Returns:
+            tuple: (adx, plus_di, minus_di)
+        """
+        high = df['high']
+        low = df['low']
+        close = df['close']
+        
+        # 计算+DM和-DM
+        high_diff = high.diff()
+        low_diff = -low.diff()
+        
+        plus_dm = high_diff.copy()
+        minus_dm = low_diff.copy()
+        
+        # +DM规则：high_diff > low_diff 且 high_diff > 0
+        plus_dm[~((high_diff > low_diff) & (high_diff > 0))] = 0
+        
+        # -DM规则：low_diff > high_diff 且 low_diff > 0
+        minus_dm[~((low_diff > high_diff) & (low_diff > 0))] = 0
+        
+        # 计算TR (True Range)
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        # 平滑计算（使用Wilder's smoothing）
+        atr = tr.ewm(alpha=1/period, adjust=False).mean()
+        plus_di = 100 * (plus_dm.ewm(alpha=1/period, adjust=False).mean() / atr)
+        minus_di = 100 * (minus_dm.ewm(alpha=1/period, adjust=False).mean() / atr)
+        
+        # 计算DX
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+        
+        # 计算ADX（DX的移动平均）
+        adx = dx.ewm(alpha=1/period, adjust=False).mean()
+        
+        return adx, plus_di, minus_di
+    
+    @staticmethod
     def calculate_volume_ma(df: pd.DataFrame, period: int = 20) -> pd.Series:
         """
         计算成交量移动平均
@@ -358,6 +406,13 @@ class TechnicalIndicators:
             # ATR
             if 'atr_period' in config:
                 df_result['atr'] = self.calculate_atr(df_result, config['atr_period'])
+            
+            # ADX
+            if 'adx_period' in config:
+                adx, plus_di, minus_di = self.calculate_adx(df_result, config['adx_period'])
+                df_result['adx'] = adx
+                df_result['plus_di'] = plus_di
+                df_result['minus_di'] = minus_di
             
             # 成交量指标
             if 'volume_ma_period' in config:
