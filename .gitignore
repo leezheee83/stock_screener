@@ -29,7 +29,7 @@ wheels/
 *.swo
 *~
 .DS_Store
-
+.cursor/
 # Logs
 logs/
 *.log
@@ -42,8 +42,14 @@ reports/*.pdf
 # Config (sensitive)
 config/secrets.yaml
 .env
-
+.specify/
 # Data files (optional - depending on if you want to track data)
 # Uncomment if data files are too large
-# data/
+data/
+
+
+
+
+
+
 

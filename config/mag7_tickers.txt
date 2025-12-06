@@ -1,0 +1,10 @@
+# MAG7 - 美股七大科技巨头
+# 用于快速测试和验证策略
+
+MSFT    # Microsoft - 微软
+AAPL    # Apple - 苹果
+GOOGL   # Alphabet (Google) - 谷歌
+AMZN    # Amazon - 亚马逊
+NVDA    # Nvidia - 英伟达
+META    # Meta (Facebook) - Meta
+TSLA    # Tesla - 特斯拉

@@ -332,3 +332,10 @@ class MAADXScorer(BaseTrendScorer):
             'details': {'scorer': self.NAME, 'version': self.VERSION, 'error': 'empty_data'}
         }
 
+
+
+
+
+
+
+

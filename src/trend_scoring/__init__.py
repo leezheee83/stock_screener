@@ -8,3 +8,10 @@ from .ma_adx_scorer import MAADXScorer
 
 __all__ = ['BaseTrendScorer', 'MAADXScorer']
 
+
+
+
+
+
+
+

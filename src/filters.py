@@ -239,3 +239,10 @@ class TrendFilter:
         self.logger.info(f"趋势过滤: 通过 {len(passed)}/{len(data)}, 拒绝 {len(rejected)}")
         return passed, rejected
 
+
+
+
+
+
+
+

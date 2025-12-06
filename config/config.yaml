@@ -1,134 +1,103 @@
-# 美股定时筛选系统配置文件
-
-# 数据源配置
 data:
-  # 股票池类型: sp500, nasdaq100, custom
-  stock_universe: nasdaq100
-  
-  # 历史数据长度（天数）
   history_days: 180
-  
-  # 支持的时间周期
-  timeframes:
-    - daily
-    - weekly
-    - monthly
-  
-  # 数据存储路径
+  source:
+    api_key: JCYHE2IJVOIWUA52
+    batch_size: 10
+    max_retries: 3
+    max_workers: 1
+    request_delay: 12.0
+    type: alphavantage
+  stock_universe: custom  # 使用自定义股票列表（MAG7测试集）
+  custom_tickers_file: config/mag7_tickers.txt  # MAG7股票列表文件
   storage:
     daily: data/daily
-    weekly: data/weekly
     monthly: data/monthly
-
-# 调度配置
+    weekly: data/weekly
+  timeframes:
+  - daily
+  - weekly
+  - monthly
+indicators:
+  adx_period: 14
+  bollinger_bands:
+    period: 20
+    std_dev: 2
+  ema_periods:
+  - 12
+  - 26
+  ma_periods:
+  - 5
+  - 10
+  - 20
+  - 50
+  - 200
+  macd:
+    fast: 12
+    signal: 9
+    slow: 26
+  rsi_period: 14
+  volume_ma_period: 20
+logging:
+  backup_count: 5
+  file: logs/stock_screener.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+  max_bytes: 10485760
+report:
+  format: both
+  include_details: true
+  output_dir: reports
 scheduler:
-  # 是否启用定时任务
   enabled: true
-  
-  # 调度时间（美东时间 ET）
   schedules:
-    - time: "16:30"  # 美股收盘后
-      timezone: "US/Eastern"
-    - time: "09:00"  # 美股开盘前
-      timezone: "US/Eastern"
-
-# 策略配置
+  - time: '16:30'
+    timezone: US/Eastern
+  - time: 09:00
+    timezone: US/Eastern
+screening:
+  filters:
+    data_quality:
+      min_data_points: 100
+      required_columns:
+      - close
+      - volume
+      - high
+      - low
+    liquidity:
+      excellent_threshold: 10000000
+      min_avg_dollar_volume: 1000000
+      min_price: 5.0
+      volume_period: 20
+    trend:
+      min_20d_return: 0.0
+      require_above_ma50: true
+      require_ma20_uptrend: true
+  final_scoring:
+    output_count: 20
+    weights:
+      liquidity: 0.2
+      multi_strategy: 0.1
+      signal: 0.4
+      trend: 0.3
+  trend_scorer:
+    type: ma_adx
+    version: 1.0.0
+    weights:
+      adx_strength: 0.35
+      ma_alignment: 0.4
+      price_momentum: 0.15
+      price_position: 0.1
 strategies:
-  # 均线突破策略
   ma_crossover:
     enabled: true
-    short_period: 20
     long_period: 50
-    
-  # 成交量异常策略
+    short_period: 20
+  pattern_recognition:
+    enabled: true
+    patterns:
+    - breakout
+    - support_resistance
   volume_surge:
     enabled: true
     lookback_period: 20
     surge_multiplier: 2.0
-    
-  # 价格形态识别
-  pattern_recognition:
-    enabled: true
-    patterns:
-      - breakout
-      - support_resistance
-
-# 技术指标参数
-indicators:
-  ma_periods: [5, 10, 20, 50, 200]
-  ema_periods: [12, 26]
-  rsi_period: 14
-  adx_period: 14
-  macd:
-    fast: 12
-    slow: 26
-    signal: 9
-  bollinger_bands:
-    period: 20
-    std_dev: 2
-  volume_ma_period: 20
-
-# 报告配置
-report:
-  # 输出格式: csv, excel, both
-  format: both
-  
-  # 报告保存路径
-  output_dir: reports
-  
-  # 是否包含详细指标数据
-  include_details: true
-
-# 日志配置
-logging:
-  level: INFO
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: logs/stock_screener.log
-  max_bytes: 10485760  # 10MB
-  backup_count: 5
-
-# Level 1 硬筛选配置
-screening:
-  # 硬过滤器配置
-  filters:
-    # 流动性过滤
-    liquidity:
-      min_avg_dollar_volume: 1000000   # 最小日均成交额（100万美元）
-      min_price: 5.0                   # 最小股价
-      volume_period: 20                # 计算周期
-      excellent_threshold: 10000000    # 优秀流动性阈值（1000万美元）
-    
-    # 数据质量过滤
-    data_quality:
-      min_data_points: 100             # 最少数据点
-      required_columns:
-        - close
-        - volume
-        - high
-        - low
-    
-    # 趋势硬门槛过滤
-    trend:
-      min_20d_return: 0.0              # 20日最小涨幅（0%）
-      require_above_ma50: true         # 必须在MA50上方
-      require_ma20_uptrend: true       # MA20必须上升
-  
-  # 趋势评分器配置
-  trend_scorer:
-    type: "ma_adx"                     # 使用MA+ADX评分器
-    version: "1.0.0"
-    weights:
-      ma_alignment: 0.40               # 均线排列权重
-      adx_strength: 0.35               # ADX强度权重
-      price_momentum: 0.15             # 价格动量权重
-      price_position: 0.10             # 价格位置权重
-  
-  # 综合评分配置
-  final_scoring:
-    weights:
-      liquidity: 0.20                  # 流动性权重
-      trend: 0.30                      # 趋势权重
-      signal: 0.40                     # 策略信号权重
-      multi_strategy: 0.10             # 多策略共振权重
-    output_count: 20                   # 输出Top N
-

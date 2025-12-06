@@ -53,12 +53,15 @@ class StockScreener:
         self.logger.info("股票筛选系统初始化")
         self.logger.info("=" * 60)
         
-        # 初始化各模块（使用保守配置避免限流）
+        # 初始化数据采集器（从配置文件读取数据源设置）
+        data_source_config = self.config_manager.get('data.source', {})
         self.data_fetcher = DataFetcher(
             history_days=self.config_manager.get_history_days(),
-            max_workers=1,      # 串行下载（最安全，避免限流）
-            request_delay=5.0,  # 每次请求间隔5秒（增加延迟）
-            max_retries=3       # 失败重试3次
+            max_workers=data_source_config.get('max_workers', 1),
+            request_delay=data_source_config.get('request_delay', 15.0),
+            max_retries=data_source_config.get('max_retries', 3),
+            source_type=data_source_config.get('type', 'yfinance'),
+            api_key=data_source_config.get('api_key') or None
         )
         self.data_storage = DataStorage()
         self.indicators = TechnicalIndicators()

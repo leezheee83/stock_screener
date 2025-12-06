@@ -68,3 +68,10 @@ class BaseTrendScorer(ABC):
             'config': self.config
         }
 
+
+
+
+
+
+
+

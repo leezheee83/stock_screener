@@ -2,9 +2,27 @@
 
 一个基于Python的美股定时筛选系统，支持多周期K线数据采集、技术指标计算、可插拔策略引擎和自动化报告生成。
 
+## ⚠️ 重要更新：数据源升级
+
+**遇到限流问题？** 系统现已支持多个数据源，彻底解决Yahoo Finance限流问题！
+
+📖 **快速解决**: 
+- 如果你遇到 "Too Many Requests" 或 "Rate limited" 错误
+- 查看 [UPGRADE_NOTES.md](UPGRADE_NOTES.md) 立即切换到更稳定的数据源
+- 推荐使用 Alpha Vantage（免费，5分钟配置完成）
+
+```bash
+# 使用配置向导快速设置
+python3 configure_datasource.py
+```
+
 ## 功能特性
 
-- **多数据源支持**: 使用yfinance获取S&P 500或NASDAQ 100成分股数据
+- **多数据源支持**: Yahoo Finance、Alpha Vantage、Polygon.io
+  - ✅ 解决限流问题
+  - ✅ 免费API可用
+  - ✅ 一键切换
+- **多股票池**: 支持S&P 500、NASDAQ 100或自定义股票列表
 - **多周期分析**: 支持日K、周K、月K线数据同时分析
 - **丰富的技术指标**: MA/EMA、MACD、RSI、布林带、ATR、成交量分析等
 - **可插拔策略引擎**: 
@@ -13,8 +31,13 @@
   - 价格突破策略
   - RSI超卖/超买策略
   - 支持自定义策略扩展
+- **Level 1 硬筛选系统**:
+  - 流动性过滤
+  - 数据质量过滤
+  - 趋势过滤
+  - 综合评分引擎
 - **自动化调度**: 支持定时任务，可在美股收盘后和开盘前自动筛选
-- **报告生成**: 生成CSV/Excel格式的筛选报告
+- **报告生成**: 生成CSV/Excel/JSON格式的筛选报告
 - **增量更新**: 智能增量数据更新机制，节省时间和网络资源
 
 ## 系统架构
@@ -22,23 +45,39 @@
 ```
 stock_screener/
 ├── main.py                    # 主程序入口
+├── configure_datasource.py    # 数据源配置向导
+├── check_config.py            # 配置验证工具
 ├── requirements.txt           # 依赖包
 ├── config/
 │   └── config.yaml           # 配置文件
 ├── src/
 │   ├── __init__.py
-│   ├── data_fetcher.py       # 数据采集模块
+│   ├── data_fetcher.py       # 数据采集模块（多数据源）
+│   ├── data_fetcher_multi.py # 多数据源实现
 │   ├── data_storage.py       # 数据存储模块
 │   ├── indicators.py         # 技术指标计算
 │   ├── scheduler.py          # 定时调度器
 │   ├── reporter.py           # 报告生成器
 │   ├── config_manager.py     # 配置管理
 │   ├── utils.py              # 工具函数
-│   └── strategy/             # 策略引擎
+│   ├── filters.py            # 筛选过滤器
+│   ├── scoring_engine.py     # 评分引擎
+│   ├── strategy/             # 策略引擎
+│   │   ├── __init__.py
+│   │   ├── base_strategy.py
+│   │   ├── builtin_strategies.py
+│   │   └── custom_strategies.py
+│   └── trend_scoring/        # 趋势评分
 │       ├── __init__.py
-│       ├── base_strategy.py
-│       ├── builtin_strategies.py
-│       └── custom_strategies.py
+│       ├── base_scorer.py
+│       └── ma_adx_scorer.py
+├── tests/                    # 测试工具集 ⭐
+│   ├── README.md            # 测试工具说明
+│   ├── test_data_source.py  # 数据源测试
+│   ├── debug_alphavantage.py # Alpha Vantage诊断
+│   └── test_*.py            # 其他测试工具
+├── docs/                     # 文档目录
+│   └── DATA_SOURCE_GUIDE.md # 数据源详细指南
 ├── data/                     # 数据存储目录
 │   ├── daily/
 │   ├── weekly/
@@ -48,6 +87,19 @@ stock_screener/
 ```
 
 ## 快速开始
+
+### 0. 配置数据源（推荐先做）
+
+如果你担心限流问题或想要更稳定的数据源：
+
+```bash
+# 使用交互式配置向导
+python3 configure_datasource.py
+
+# 或手动编辑 config/config.yaml
+```
+
+详见 [数据源配置指南](docs/DATA_SOURCE_GUIDE.md)
 
 ### 1. 安装依赖
 
