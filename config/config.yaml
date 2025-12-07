@@ -72,6 +72,13 @@ screening:
       min_20d_return: 0.0
       require_above_ma50: true
       require_ma20_uptrend: true
+    weekly_trend:                    # 周趋势确认过滤器（多时间框架验证）
+      enabled: true                  # 是否启用
+      weekly_ma_period: 20           # 周线MA周期
+      slope_lookback_weeks: 4        # 计算斜率的回看周数
+      min_weekly_slope: 0.0          # 最小周线斜率（0表示要求上升）
+      require_alignment: true        # 是否要求日/周趋势一致
+      sideways_threshold: 0.005      # 横盘判断阈值
   final_scoring:
     output_count: 20
     weights:

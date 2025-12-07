@@ -294,8 +294,40 @@ python3 check_config.py
 
 ---
 
+---
+
+## 🔬 筛选系统增强文档
+
+### 第1阶段：周趋势确认 ✅ 已完成
+
+- **[docs/multi_timeframe_analysis.md](docs/multi_timeframe_analysis.md)** - 多时间框架分析详解
+  - 周趋势确认原理
+  - WeeklyTrendFilter 使用方法
+  - 配置参数说明
+  - 最佳实践
+
+### 任务跟踪
+
+- **[.specify/features/stock-screening-system/tasks.md](.specify/features/stock-screening-system/tasks.md)** - 任务分解（英文）
+- **[.specify/features/stock-screening-system/tasks_summary_cn.md](.specify/features/stock-screening-system/tasks_summary_cn.md)** - 任务摘要（中文）
+
+### 模块文档
+
+| 模块 | 说明 | 状态 |
+|------|------|------|
+| `src/filters/` | 过滤器模块（已重构为文件夹结构） | ✅ 完成 |
+| `src/filters/weekly_trend_filter.py` | 周趋势确认过滤器 | ✅ 完成 |
+| `src/filters/base_filter.py` | 过滤器基类 | ✅ 完成 |
+
+---
+
 ## 📝 更新日志
 
+- **2025-12-07**: 
+  - ✅ 完成第1阶段：周趋势确认功能
+  - 重构 `src/filters/` 为模块化文件夹结构
+  - 新增 `docs/multi_timeframe_analysis.md`
+  - 更新任务跟踪文档
 - 2024-12-06: 初始版本，包含完整的多数据源支持
 - 添加了8个文档文件
 - 添加了3个工具脚本

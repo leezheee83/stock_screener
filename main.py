@@ -27,7 +27,7 @@ from src.strategy import (
 )
 from src.reporter import Reporter
 from src.scheduler import TaskScheduler, ScheduleConfig
-from src.filters import LiquidityFilter, DataQualityFilter, TrendFilter
+from src.filters import LiquidityFilter, DataQualityFilter, TrendFilter, WeeklyTrendFilter
 from src.trend_scoring import MAADXScorer
 from src.scoring_engine import ScoringEngine
 
@@ -165,6 +165,13 @@ class StockScreener:
             filters_config.get('trend', {})
         )
         
+        # 初始化周趋势确认过滤器（多时间框架验证）
+        weekly_trend_config = filters_config.get('weekly_trend', {})
+        self.weekly_trend_filter = WeeklyTrendFilter(
+            weekly_trend_config,
+            data_storage=self.data_storage
+        )
+        
         # 初始化趋势评分器
         trend_config = screening_config.get('trend_scorer', {})
         self.trend_scorer = MAADXScorer(trend_config)
@@ -250,6 +257,10 @@ class StockScreener:
         stock_data, trend_rejected = self.trend_filter.filter(stock_data)
         self.logger.info(f"趋势过滤: 通过 {len(stock_data)}, 拒绝 {len(trend_rejected)}")
         
+        # 3.4 周趋势确认过滤（多时间框架验证）
+        stock_data, weekly_trend_rejected = self.weekly_trend_filter.filter(stock_data)
+        self.logger.info(f"周趋势过滤: 通过 {len(stock_data)}, 拒绝 {len(weekly_trend_rejected)}")
+        
         if len(stock_data) == 0:
             self.logger.warning("所有股票都被过滤，没有符合条件的股票")
             return {
@@ -257,7 +268,8 @@ class StockScreener:
                 'filter_stats': {
                     'data_quality_rejected': len(data_quality_rejected),
                     'liquidity_rejected': len(liquidity_rejected),
-                    'trend_rejected': len(trend_rejected)
+                    'trend_rejected': len(trend_rejected),
+                    'weekly_trend_rejected': len(weekly_trend_rejected)
                 },
                 'strategy_results': {}
             }
@@ -299,12 +311,14 @@ class StockScreener:
             'final_results': final_results,
             'filter_stats': {
                 'total_input': len(available_stocks),
-                'after_data_quality': len(stock_data) + len(liquidity_rejected) + len(trend_rejected),
-                'after_liquidity': len(stock_data) + len(trend_rejected),
-                'after_trend': len(stock_data),
+                'after_data_quality': len(stock_data) + len(liquidity_rejected) + len(trend_rejected) + len(weekly_trend_rejected),
+                'after_liquidity': len(stock_data) + len(trend_rejected) + len(weekly_trend_rejected),
+                'after_trend': len(stock_data) + len(weekly_trend_rejected),
+                'after_weekly_trend': len(stock_data),
                 'data_quality_rejected': len(data_quality_rejected),
                 'liquidity_rejected': len(liquidity_rejected),
-                'trend_rejected': len(trend_rejected)
+                'trend_rejected': len(trend_rejected),
+                'weekly_trend_rejected': len(weekly_trend_rejected)
             },
             'strategy_results': strategy_results
         }
@@ -400,6 +414,8 @@ class StockScreener:
         self.logger.info(f"数据质量过滤后: {filter_stats['after_data_quality']} 只")
         self.logger.info(f"流动性过滤后: {filter_stats['after_liquidity']} 只")
         self.logger.info(f"趋势过滤后: {filter_stats['after_trend']} 只")
+        if 'after_weekly_trend' in filter_stats:
+            self.logger.info(f"周趋势过滤后: {filter_stats['after_weekly_trend']} 只")
         self.logger.info("-" * 60)
         
         # 打印Top结果

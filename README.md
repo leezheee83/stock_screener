@@ -35,6 +35,7 @@ python3 configure_datasource.py
   - 流动性过滤
   - 数据质量过滤
   - 趋势过滤
+  - **周趋势确认过滤** ⭐ NEW（多时间框架验证）
   - 综合评分引擎
 - **自动化调度**: 支持定时任务，可在美股收盘后和开盘前自动筛选
 - **报告生成**: 生成CSV/Excel/JSON格式的筛选报告
@@ -60,8 +61,14 @@ stock_screener/
 │   ├── reporter.py           # 报告生成器
 │   ├── config_manager.py     # 配置管理
 │   ├── utils.py              # 工具函数
-│   ├── filters.py            # 筛选过滤器
 │   ├── scoring_engine.py     # 评分引擎
+│   ├── filters/              # 筛选过滤器模块 ⭐ NEW
+│   │   ├── __init__.py
+│   │   ├── base_filter.py          # 过滤器基类
+│   │   ├── liquidity_filter.py     # 流动性过滤
+│   │   ├── data_quality_filter.py  # 数据质量过滤
+│   │   ├── trend_filter.py         # 趋势过滤
+│   │   └── weekly_trend_filter.py  # 周趋势确认 ⭐ NEW
 │   ├── strategy/             # 策略引擎
 │   │   ├── __init__.py
 │   │   ├── base_strategy.py
@@ -368,11 +375,24 @@ reporter.clean_old_reports(keep_days=30)
 3. **使用数据库**: 对于大量数据，可以替换CSV存储为SQLite或PostgreSQL
 4. **并行计算**: 技术指标计算可以使用多进程加速
 
+## 开发进度
+
+详见 [任务跟踪文档](.specify/features/stock-screening-system/tasks_summary_cn.md)
+
+### 已完成 ✅
+- [x] **第1阶段：周趋势确认** - 多时间框架验证，减少假信号
+
+### 进行中
+- [ ] 第2阶段：信号置信度分级
+- [ ] 第3阶段：回测框架 ⚠️ 最高优先级
+- [ ] 第4阶段：AI集成层（存根）
+- [ ] 第5阶段：集成测试与文档
+
 ## 后续扩展方向
 
 - [ ] 添加邮件/微信/Telegram推送通知
 - [ ] Web可视化界面（Flask/Dash）
-- [ ] 回测系统验证策略有效性
+- [x] ~~回测系统验证策略有效性~~ → 第3阶段进行中
 - [ ] 支持更多技术指标和形态识别
 - [ ] 机器学习策略集成
 - [ ] 实时数据流支持
